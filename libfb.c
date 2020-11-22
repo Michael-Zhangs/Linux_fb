@@ -8,15 +8,11 @@
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
+#include "libfb.h"
 
-
-typedef unsigned           char uint8_t;
-typedef unsigned short     int uint16_t;
-typedef unsigned           int uint32_t;
-typedef uint32_t  u32;
-typedef uint16_t u16;
-typedef uint8_t  u8;
-
+unsigned char white[4] = {0xff,0xff,0xff,0x00};
+unsigned char black[4] = {0x00,0x00,0x00,0x00};
+extern long int screensize;
 
 const unsigned char asc2_1206[95][12]={
 {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},/*" ",0*/
@@ -410,101 +406,6 @@ const unsigned char asc2_3216[95][128]={
 {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x00,0x02,0x10,0x00,0x00,0x02,0x08,0x00,0x00,0x04,0x07,0xFE,0x3F,0xF8,0x00,0x01,0x40,0x00,0x00,0x00,0x80,0x00,0x00,0x00,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},/*"}",93*/
 {0x00,0x00,0x00,0x00,0x18,0x00,0x00,0x00,0x30,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x30,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x0C,0x00,0x00,0x00,0x18,0x00,0x00,0x00,0x00,0x00,0x00,0x00},/*"~",94*/
 };
-
-
-unsigned char white[4] = {0xff,0xff,0xff,0x00};
-unsigned char black[4] = {0x00,0x00,0x00,0x00};
-long int screensize = 0;
-
-
-void LCD_DrawPoint(unsigned int x, unsigned int y,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *pfb);
-void LCD_ShowChar(u16 x,u16 y,u8 num,u8 size,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *pfb);
-void LCD_DrawLine(u16 x1, u16 y1, u16 x2, u16 y2,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *pfb);
-void LCD_Draw_Circle(u16 x0,u16 y0,u8 r,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *fpb);
-void LCD_ShowString(u16 x,u16 y,u16 width,u16 height,u8 size,u8 *p,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *fbp);
-
-int main()
-{
-        int fbfd = 0;
-        struct fb_var_screeninfo vinfo;
-        struct fb_fix_screeninfo finfo;
-        char *fbp = 0;
-        int x = 0, y = 0;
-        long int location = 0;
-       int sav=0;
-        /* open device*/
-        fbfd = open("/dev/fb0", O_RDWR);
-        if (!fbfd) {
-                printf("Error: cannot open framebuffer device.\n");
-                exit(1);
-        }
-        printf("The framebuffer device was opened successfully.\n");
-
-        /* Get fixed screen information */
-        if (ioctl(fbfd, FBIOGET_FSCREENINFO, &finfo)) {
-                printf("Error reading fixed information.\n");
-                exit(2);
-        }
-
-        /* Get variable screen information */
-        if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) {
-                printf("Error reading variable information.\n");
-                exit(3);
-        }
-
-        /* show these information*/
-        printf("vinfo.xres_virtual : %d , vinfo.yres_virtual : %d\n",vinfo.xres_virtual, vinfo.yres_virtual);
-        printf("vinfo.xres=%d\n",vinfo.xres);
-        printf("vinfo.yres=%d\n",vinfo.yres);
-        printf("vinfo.bits_per_bits=%d\n",vinfo.bits_per_pixel);
-        printf("vinfo.xoffset=%d\n",vinfo.xoffset);
-        printf("vinfo.yoffset=%d\n",vinfo.yoffset);
-        printf("finfo.line_length=%d\n",finfo.line_length);
-
-        /* Figure out the size of the screen in bytes */
-        screensize = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
-
-        printf("screensize : %d ,  : %d\n",screensize, finfo.smem_len);
-
-        /* Map the device to memory */
-        fbp = (char *)mmap(0, screensize, PROT_READ | PROT_WRITE, MAP_SHARED,
-                fbfd, 0);
-        if ((int)fbp == -1)
-        {
-            printf("Error: failed to map framebuffer device to memory.\n"); exit(4);
-        }
-        printf("The framebuffer device was mapped to memory successfully.\n");
-
-        memset(fbp,0,screensize);
-            /* Where we are going to put the pixel */
-
-        unsigned int  index;
-        const unsigned char *pLog = NULL;
-        pLog=black;
-        for(x=0;x<vinfo.xres;x++)
-            for(y=0;y<vinfo.yres;y++)
-            {
-                location = (x+vinfo.xoffset) * (vinfo.bits_per_pixel/8) +
-                 (y+vinfo.yoffset) * finfo.line_length;
-
-                *(fbp + location) = pLog[index]; /*  blue */
-                *(fbp + location + 1) = pLog[index+1];
-                *(fbp + location + 2) = pLog[index+2]; /*  blue */
-                *(fbp + location + 3) = 0x00;
-            }
-//        LCD_DrawPoint(10, 10, finfo, vinfo, fbp);
-//        LCD_DrawPoint(20, 20, finfo, vinfo, fbp);
-
-
-        LCD_ShowChar(20, 20, 'y',32,finfo, vinfo, fbp);
-        LCD_ShowString(0,0,200,32,32,"yangyue",finfo, vinfo,fbp);
-        LCD_Draw_Circle(40,40,20,finfo, vinfo, fbp);
-        LCD_DrawLine(60, 60, 90,90,finfo, vinfo, fbp);
-        munmap(fbp, screensize);  /* release the memory */
-        close(fbfd);
-
-    return 0;
-}
 
 void LCD_DrawPoint(unsigned int x, unsigned int y,struct fb_fix_screeninfo finfo, struct fb_var_screeninfo vinfo, char *pfb)
 {
